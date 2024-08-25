@@ -97,6 +97,12 @@ def signup():
     
 @bp.route("/signin", methods=["POST"])
 def signin():
+    if get_jwt_identity():
+        return jsonify({
+            "type": "Invalid",
+            "item": "Login"
+        }), 400
+    
     received_data = request.get_json()
     required_keys = ["username", "password"]
     for key in required_keys:
