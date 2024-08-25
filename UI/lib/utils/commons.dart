@@ -5,6 +5,11 @@ import 'dart:io';
 /// Common function for entire app
 
 class Commons {
+  static double? fieldWidth;
+
+  static void initialize(BuildContext context) {
+    fieldWidth = fieldWidth ?? getInputFieldWidth(context);
+  }
 
   // Get the width of an input field
   static double getInputFieldWidth(BuildContext context) {
