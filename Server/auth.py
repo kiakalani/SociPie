@@ -1,5 +1,7 @@
 import re
 from flask import current_app, Blueprint, request, jsonify
+from flask_jwt_extended import \
+create_access_token, jwt_required, get_jwt_identity
 from werkzeug.security import generate_password_hash,\
     check_password_hash
 from sqlalchemy import Column, Integer, String
@@ -93,4 +95,48 @@ def signup():
     }), 200
     
     
+@bp.route("/signin", methods=["POST"])
+def signin():
+    received_data = request.get_json()
+    required_keys = ["username", "password"]
+    for key in required_keys:
+        if key not in received_data:
+            return jsonify({
+                "type": "Invalid",
+                "item": "Login"
+            }), 400
+    user: RecipeUser = RecipeUser.query.filter(
+        RecipeUser.username == received_data["username"]
+    ).first()
+    if not user:
+        return jsonify({
+            "type": "Invalid",
+            "item": "Login"
+        }), 400
+    if not check_password_hash(user.password, received_data["password"]):
+        return jsonify({
+            "type": "Invalid",
+            "item": "Login"
+        }), 400
+    access_token = create_access_token(identity=user.username)
+    return jsonify({
+        "type": "Success",
+        "token": access_token
+    }), 200
+
+@bp.route("testlogin", methods=["POST"])
+@jwt_required()
+def testlogin():
+    current_user = get_jwt_identity()
+    user = RecipeUser.query.filter(RecipeUser.username == current_user).first()
+    if not user:
+        return jsonify({
+            "type": "invalid",
+            "item": "login"
+        }), 400
     
+    return jsonify({
+        "type": "Success",
+        "name": user.name,
+        "email": user.email
+    }), 200
