@@ -1,7 +1,5 @@
 import re
 from flask import current_app, Blueprint, request, jsonify
-from flask_jwt_extended import \
-create_access_token, jwt_required, get_jwt_identity
 from werkzeug.security import generate_password_hash,\
     check_password_hash
 from sqlalchemy import Column, Integer, String
@@ -97,11 +95,6 @@ def signup():
     
 @bp.route("/signin", methods=["POST"])
 def signin():
-    if get_jwt_identity():
-        return jsonify({
-            "type": "Invalid",
-            "item": "Login"
-        }), 400
     
     received_data = request.get_json()
     required_keys = ["username", "password"]
@@ -124,20 +117,50 @@ def signin():
             "type": "Invalid",
             "item": "Login"
         }), 400
-    access_token = create_access_token(identity=user.username)
+    access_token = current_app.config["JWT_CREATE_TOKEN"](user.username, "access")
+    refresh_token = current_app.config["JWT_CREATE_TOKEN"](user.username, "refresh")
     return jsonify({
-        "type": "Success",
+        "type": "success",
+        "token": {
+            "access": access_token,
+            "refresh": refresh_token
+        }
+    })
+
+@bp.route("/refresh", methods=["POST"])
+def refresh():
+    refresh_token = request.headers.get("Authorization")
+    if not refresh_token:
+        return jsonify({
+            "type": "Invalid",
+            "item": "Login"
+        }), 400
+    username = current_app.config["JWT_PARSE_TOKEN"](refresh_token)
+    if username is None:
+        return jsonify({
+            "type": "Invalid",
+            "item": "Login"
+        }), 400
+    access_token = current_app.config["JWT_CREATE_TOKEN"](username["username"], "access")
+    return jsonify({
+        "type": "success",
         "token": access_token
     }), 200
 
 @bp.route("testlogin", methods=["POST"])
-@jwt_required()
 def testlogin():
-    current_user = get_jwt_identity()
-    user = RecipeUser.query.filter(RecipeUser.username == current_user).first()
+    token = request.headers.get("Authorization")
+    username = current_app.config["JWT_PARSE_TOKEN"](token)
+    if username is None or username["token_type"] != "access":
+        return jsonify({
+            "type": "Invalid",
+            "item": "login"
+        }), 400
+    
+    user = RecipeUser.query.filter(RecipeUser.username == username["username"]).first()
     if not user:
         return jsonify({
-            "type": "invalid",
+            "type": "Invalid",
             "item": "login"
         }), 400
     
